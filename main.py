@@ -44,7 +44,7 @@ def scheduled_fetch_job():
 
 # APScheduler 등록 (한국시간 기준)
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
-scheduler.add_job(scheduled_fetch_job, 'cron', hour=11, minute=13)  # 매일 오전 11시 13분 (테스트용)
+scheduler.add_job(scheduled_fetch_job, 'cron', hour=10, minute=0)  # 매일 오전 10시
 scheduler.start()
 
 # 앱 종료 시 스케줄러 종료
