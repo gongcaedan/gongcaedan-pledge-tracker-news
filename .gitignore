@@ -1,0 +1,18 @@
+# 환경 설정 파일
+.env
+.env.*
+
+# Python 기본
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.log
+
+# 가상환경 폴더 (예: venv)
+venv/
+ENV/
+env/
+
+# OS별 (선택)
+.DS_Store
+Thumbs.db
