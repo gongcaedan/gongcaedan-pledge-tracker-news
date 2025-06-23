@@ -2,39 +2,59 @@ name: Daily News Crawler
 
 on:
   schedule:
-    - cron: '59 0 * * *'  # UTC 기준 → KST 오전 9시 59분
-  workflow_dispatch: 
+    # 한국 시간으로 오전 10:00
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
 jobs:
   crawl-and-commit:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: newsdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-    - name: Create .env file
-      run: |
-        echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" >> .env
-        echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
+      - name: Create .env file
+        run: |
+          echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}"   >> .env
+          echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" >> .env
+          echo "POSTGRES_HOST=localhost"       >> .env
+          echo "POSTGRES_PORT=5432"            >> .env
+          echo "POSTGRES_DB=newsdb"            >> .env
+          echo "POSTGRES_USER=postgres"        >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
 
-    - name: Run news fetcher
-      run: |
-        python main.py
+      - name: Run news fetcher
+        run: python main.py
 
-    - name: Commit and push if there are changes
-      run: |
-        git config --global user.email "action@github.com"
-        git config --global user.name "GitHub Action"
-        git add logs/
-        git diff --cached --quiet || (git commit -m "뉴스 크롤링 결과 저장 (매일 10시)" && git push)
+      - name: Commit and push if changes
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add .
+          git diff --cached --quiet || (git commit -m "자동: 뉴스 크롤링 및 DB 삽입 (매일 10시)" && git push)

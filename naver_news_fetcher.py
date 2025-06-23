@@ -2,16 +2,25 @@ import os
 import urllib.request
 import json
 import datetime
+import psycopg2
 from dotenv import load_dotenv
 
-# .env 파일 로드
 load_dotenv()
 
-# 네이버 API 키 가져오기
 client_id = os.getenv("NAVER_CLIENT_ID")
 client_secret = os.getenv("NAVER_CLIENT_SECRET")
 
-# 뉴스 저장 함수
+# PostgreSQL 연결 함수
+def get_pg_conn():
+    return psycopg2.connect(
+        host=os.getenv("POSTGRES_HOST"),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        port=os.getenv("POSTGRES_PORT")
+    )
+
+# 뉴스 크롤링 후 DB에 저장
 def fetch_and_save_naver_news(keyword: str) -> dict:
     encText = urllib.parse.quote(keyword)
     today = datetime.datetime.now().strftime('%Y-%m-%d')
@@ -30,16 +39,31 @@ def fetch_and_save_naver_news(keyword: str) -> dict:
 
     response_body = response.read()
     response_result = json.loads(response_body.decode("utf-8"))
+    items = response_result.get("items", [])
 
-    # logs 디렉토리 생성
-    log_dir = os.path.join(os.getcwd(), "logs")
-    os.makedirs(log_dir, exist_ok=True)
+    # PostgreSQL에 저장
+    try:
+        conn = get_pg_conn()
+        cursor = conn.cursor()
 
-    # 파일 저장
-    filename = f"news_{keyword}_{today}.json"
-    file_path = os.path.join(log_dir, filename)
+        for item in items:
+            title = item["title"]
+            description = item["description"]
+            link = item["link"]
+            pub_date_str = item["pubDate"] 
+            pub_date = datetime.datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S %z')
 
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(response_result, f, ensure_ascii=False, indent=4)
+            cursor.execute("""
+                INSERT INTO news (keyword, title, description, link, pub_date)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (keyword, title, description, link, pub_date))
 
-    return {"message": f"{keyword} 뉴스 저장 성공", "file": file_path}
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"message": f"{keyword} 뉴스 {len(items)}건 DB 저장 완료"}
+
+    except Exception as e:
+        return {"error": str(e)}
