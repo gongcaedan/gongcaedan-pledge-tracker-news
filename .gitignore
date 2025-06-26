@@ -16,3 +16,4 @@ env/
 # OS별 (선택)
 .DS_Store
 Thumbs.db
+.venv/
