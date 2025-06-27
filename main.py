@@ -1,7 +1,10 @@
+from dotenv import load_dotenv
+load_dotenv()   
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 from naver_news_fetcher import fetch_and_save_naver_news
+
 
 app = FastAPI()
 
